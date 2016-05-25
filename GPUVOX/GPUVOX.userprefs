@@ -1,0 +1,16 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Scripts\VoxelEditor.cs">
+    <Files>
+      <File FileName="Assets\Resources\Shaders\Simplex3d.compute" Line="344" Column="16" />
+      <File FileName="Assets\Resources\Shaders\MCBuilder.compute" Line="456" Column="1" />
+      <File FileName="Assets\Scripts\VoxelCalculator.cs" Line="385" Column="13" />
+      <File FileName="Assets\Scripts\VoxelChunk.cs" Line="42" Column="3" />
+      <File FileName="Assets\Scripts\VoxelEditor.cs" Line="28" Column="38" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

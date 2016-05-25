@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 01593d77c5bf8f245b42bb8239bd4a23
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences:
+  - _CShaderGenerator: {fileID: 7200000, guid: 6bc7c7fa3b98c6c48b453656a897cf4f, type: 3}
+  - _CShaderBuilder: {fileID: 7200000, guid: 718a891c13e6b3940a0d8a85e20a307d, type: 3}
+  - _DefaultMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
