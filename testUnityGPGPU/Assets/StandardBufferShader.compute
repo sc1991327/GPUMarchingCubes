@@ -1,0 +1,10 @@
+﻿#pragma kernel CSMain
+
+StructuredBuffer<float> bufferIn;
+RWStructuredBuffer<float> bufferOut;
+ 
+[numthreads(8,1,1)]
+void CSMain (uint id : SV_DispatchThreadID)
+{
+    bufferOut[id] = bufferIn[id] * 2;
+}

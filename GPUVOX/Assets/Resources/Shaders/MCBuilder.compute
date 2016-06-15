@@ -4,6 +4,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel BuildVertices
 #pragma kernel BuildTriangles
+
 /*
 struct Poly
 {
@@ -21,6 +22,7 @@ struct Tris
     int B;
     int C;
 };
+
 /*
 struct CNT
 {
@@ -28,6 +30,7 @@ struct CNT
 	int TCNT;
 };
 */
+
 int _Trilinear;
 int _Size;
 int _MultiSampling;
@@ -81,6 +84,7 @@ static const int2 edge_to_verts[12] = {
 	int2(6,2), //10
 	int2(7,3) //11
 };
+
 static const int case_to_numpolys[256] = {
 	0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,2,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,3,
 	1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,3,2,3,3,2,3,4,4,3,3,4,4,3,4,5,5,2,
@@ -91,7 +95,8 @@ static const int case_to_numpolys[256] = {
 	2,3,3,4,3,4,4,5,3,4,4,5,2,3,3,2,3,4,4,5,4,5,5,2,4,3,5,4,3,2,4,1, 
 	3,4,4,5,4,5,3,4,4,5,5,2,3,4,2,1,2,3,3,2,3,4,2,1,3,2,4,1,2,1,1,0
 };
-//   256*5 = 1280 entries
+
+//   256 * 5 = 1280 entries
 static const int4 edge_connect_list[1280] = { 
 	int4(-1, -1, -1, -1), int4(-1, -1, -1, -1), int4(-1, -1, -1, -1), int4(-1, -1, -1, -1), int4(-1, -1, -1, -1),
 	int4(0,  8,  3, -1), int4(-1, -1, -1, -1), int4(-1, -1, -1, -1), int4(-1, -1, -1, -1), int4(-1, -1, -1, -1),
@@ -392,12 +397,14 @@ float MultiSample( float3 pPosition ){
 	
 	return sum / 9;
 	//return sum;
+
 }
 
 float SampleDensity( float3 pPos  ){
-	
+
 		return Sample3d(pPos);
 		//return MultiSample(pPos);
+
 }
 
 float3 SampleNormal (float3 p)
@@ -405,11 +412,10 @@ float3 SampleNormal (float3 p)
 	float dx = Sample3d(float3(p.x+1,p.y,p.z)) - Sample3d(float3(p.x-1,p.y,p.z));
 	float dy = Sample3d(float3(p.x,p.y+1,p.z)) - Sample3d(float3(p.x,p.y-1,p.z));
 	float dz = Sample3d(float3(p.x,p.y,p.z+1)) - Sample3d(float3(p.x,p.y,p.z-1));
-	
 	float3 normal = normalize(float3(dx,dy,dz)); //0.001+
-	
+
 	return normal;
-	
+
 }
 
 static const int3 edge_to_neighbor[12] = {

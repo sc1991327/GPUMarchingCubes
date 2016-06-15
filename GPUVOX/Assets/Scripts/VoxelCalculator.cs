@@ -2,6 +2,7 @@
 using System.Collections;
 //using System.Threading;
 using System.Linq;
+
 delegate void CHUNK_OPERATION();
 
 public class VoxelCalculator : Singleton<VoxelCalculator> {
@@ -9,7 +10,6 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 	protected VoxelCalculator () {} 
 	
 	public ComputeShader _CShaderGenerator;
-	
 	public ComputeShader _CShaderBuilder;
 	
 	// Maximum buffer size (triangles)
@@ -21,9 +21,10 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 	public float _MSDist = 0.5f;
 	public int _WithNeighbours = 1;
 	
-	//Chunk size in Z dimmension. Used in CS Builder for depth iterations.
-	public int _ChunkSizeZ = 27;
-		
+	// Chunk size in Z dimmension. Used in CS Builder for depth iterations.
+	public int ChunkSizeZ = 27;
+    public int Overlay = 5;	
+
 	public Material _DefaultMaterial;
 	
 	public int Cycles = 1;
@@ -31,13 +32,9 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 	public Queue QGenerator = new Queue();
 	public Queue QBuilder = new Queue();
 	
-	public int Overlay = 5;
-	
 	public float AvgTime = 0.0f, MaxTime;
 
     private int counter = 0;
-
-    private RenderTexture TempRenderTexture;
 
 	public struct Poly
 	{
@@ -72,32 +69,34 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 	
 	void Start()
 	{
-		TempRenderTexture = RenderTexture.GetTemporary(_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay,0,RenderTextureFormat.RFloat,RenderTextureReadWrite.sRGB);
-		TempRenderTexture.volumeDepth = _ChunkSizeZ+Overlay;
+        // Allocate a temporary render texture.
+        RenderTexture TempRenderTexture = RenderTexture.GetTemporary(ChunkSizeZ + Overlay, ChunkSizeZ + Overlay, 0, RenderTextureFormat.RFloat, RenderTextureReadWrite.sRGB);
+        TempRenderTexture.volumeDepth = ChunkSizeZ + Overlay;
 		TempRenderTexture.isVolume = true;
 		TempRenderTexture.enableRandomWrite = true;
 		TempRenderTexture.filterMode = FilterMode.Point;
 		TempRenderTexture.wrapMode = TextureWrapMode.Clamp;
 		TempRenderTexture.Create();
-		
-		CreateEmptyVolume(TempRenderTexture,_ChunkSizeZ+Overlay);
+
+        CreateEmptyVolume(TempRenderTexture, ChunkSizeZ + Overlay);
+
+        TempRenderTexture.Release();
 	}
 	
 	void Update()
 	{
-		
+        // handle QGenerator/QBuilder one by one.
 		if (QGenerator.Count > 0)
 		{
-			for (int n=0; n<QGenerator.Count;n++)
+            for (int n = 0; n < QGenerator.Count; n++)
 			{
 				CHUNK_OPERATION Operation = QGenerator.Dequeue() as CHUNK_OPERATION;
 				Operation();
 			}	
 		}
-		else
-		if (QBuilder.Count > 0)
+		else if (QBuilder.Count > 0)
 		{
-			for (int n=0; n<QBuilder.Count;n++)
+            for (int n = 0; n < QBuilder.Count; n++)
 			{
 				if (counter < Cycles){
 					CHUNK_OPERATION Operation = QBuilder.Dequeue() as CHUNK_OPERATION;
@@ -112,7 +111,6 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 	
 	new void OnDestroy()
 	{
-		TempRenderTexture.Release();
 	}
 	
 	public RenderTexture[,,] GetNeighbours(VoxelChunk chunk)
@@ -164,77 +162,35 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 			Debug.LogWarning("NULL Voulme, generation aborted");
 			return;
 		}
-		int mgen_id = _CShaderGenerator.FindKernel("FillEmpty");
-		_CShaderGenerator.SetTexture(mgen_id,"Result",Volume);
-		_CShaderGenerator.Dispatch(mgen_id,iSize+Overlay,iSize+Overlay,iSize+Overlay);
+        int mgen_id = _CShaderGenerator.FindKernel("FillEmpty");                                // Find ComputeShader kernel index.
+        _CShaderGenerator.SetTexture(mgen_id, "Result", Volume);                                // Set a texture parameter.
+        _CShaderGenerator.Dispatch(mgen_id, iSize + Overlay, iSize + Overlay, iSize + Overlay); // Execute a compute shader.
 		
 	}
-	public void FillBorders(RenderTexture Volume, RenderTexture[,,] Neighbours, int iSize = 32)
-	{
-		if (Neighbours.GetLength(0) == 0){
-			Neighbours = new RenderTexture[3,3,3];
-			Debug.LogWarning("Empty neighbourhood");
-		}
-		if (Volume == null)
-		{
-			Debug.LogWarning("NULL Voulme, generation aborted");
-			return;
-		}
-		Debug.Log("FillBorders");
-		int mgen_id = _CShaderGenerator.FindKernel("FillBorders");
 
-		RenderTexture TempRenderTexture = RenderTexture.GetTemporary(iSize,iSize,0,RenderTextureFormat.RFloat,RenderTextureReadWrite.sRGB);
-		TempRenderTexture.volumeDepth = iSize;
-		TempRenderTexture.isVolume = true;
-		TempRenderTexture.enableRandomWrite = true;
-		TempRenderTexture.filterMode = FilterMode.Point;
-		TempRenderTexture.wrapMode = TextureWrapMode.Clamp;
-		TempRenderTexture.Create();
-		//_CShaderGenerator.SetTexture(mgen_id,"Result",TempRenderTexture);
-		//_CShaderGenerator.Dispatch(mgen_id,1,1,iSize);
-		
-		
-		_CShaderGenerator.SetTexture(mgen_id,"Result",Volume);
-		_CShaderGenerator.SetTexture(mgen_id,"vol100",Neighbours[2,1,1]!=null?Neighbours[2,1,1]:TempRenderTexture);
-		_CShaderGenerator.SetTexture(mgen_id,"vol010",Neighbours[1,2,1]!=null?Neighbours[1,2,1]:TempRenderTexture);
-		_CShaderGenerator.SetTexture(mgen_id,"vol001",Neighbours[1,1,2]!=null?Neighbours[1,1,2]:TempRenderTexture);
-		
-		_CShaderGenerator.SetTexture(mgen_id,"volm100",Neighbours[0,1,1]!=null?Neighbours[0,1,1]:TempRenderTexture);
-		_CShaderGenerator.SetTexture(mgen_id,"vol0m10",Neighbours[1,0,1]!=null?Neighbours[1,0,1]:TempRenderTexture);
-		_CShaderGenerator.SetTexture(mgen_id,"vol00m1",Neighbours[1,1,0]!=null?Neighbours[1,1,0]:TempRenderTexture);
-		 
-		_CShaderGenerator.Dispatch(mgen_id,iSize,iSize,iSize);
-		
-		TempRenderTexture.Release();
-		
-	}
-	
 	public void CreateNoiseVolume(RenderTexture Volume, Vector3 Pos, int iSize = 32, float Str = 40.0f, float NoiseA = 0.000718f, float NoiseB = 0.000632f, float NoiseC = 0.000695f)
 	{
 		CHUNK_OPERATION d;
 		d = delegate() 
 		{
-			
 			if (Volume == null)
 			{
 				Debug.LogWarning("NULL Voulme, generation aborted");
 				return;
 			}
 			
-			float startTime = Time.realtimeSinceStartup;
+			//float startTime = Time.realtimeSinceStartup;
 			
 			int mgen_id = _CShaderGenerator.FindKernel("Simplex3d");
-	
-			_CShaderGenerator.SetTexture(mgen_id,"Result",Volume);
-			
-			_CShaderGenerator.SetVector("_StartPos",new Vector4(Pos.x,Pos.y,Pos.z,0.0f));
+            _CShaderGenerator.SetTexture(mgen_id, "Result", Volume);
+            _CShaderGenerator.SetVector("_StartPos", new Vector4(Pos.x, Pos.y, Pos.z, 0.0f));
 			//_CShaderGenerator.SetFloat("_MyTime",Time.time*Speed);
-			_CShaderGenerator.SetFloat("_Str",Str);
-			_CShaderGenerator.SetFloat("_NoiseA",NoiseA);
-			_CShaderGenerator.SetFloat("_NoiseB",NoiseB);
-			_CShaderGenerator.SetFloat("_NoiseC",NoiseC);
-			
-			_CShaderGenerator.Dispatch(mgen_id,iSize,iSize,iSize);
+            _CShaderGenerator.SetFloat("_Str", Str);
+            _CShaderGenerator.SetFloat("_NoiseA", NoiseA);
+            _CShaderGenerator.SetFloat("_NoiseB", NoiseB);
+            _CShaderGenerator.SetFloat("_NoiseC", NoiseC);
+            _CShaderGenerator.Dispatch(mgen_id, iSize, iSize, iSize);
+
 			//Debug.Log("Noise generation time:  " + (1000.0f*(Time.realtimeSinceStartup-startTime)).ToString()+"ms");
 		};
 		QGenerator.Enqueue(d);
@@ -251,15 +207,13 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 				return;
 			}
 			
-			float startTime = Time.realtimeSinceStartup;
+			//float startTime = Time.realtimeSinceStartup;
 			
 			int mgen_id = _CShaderGenerator.FindKernel("Sphere");
-	
-			_CShaderGenerator.SetTexture(mgen_id,"Result",Volume);
-			
-			_CShaderGenerator.SetVector("_StartPos",new Vector4(Pos.x,Pos.y,Pos.z,0.0f));
-	
-			_CShaderGenerator.Dispatch(mgen_id,_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay);
+            _CShaderGenerator.SetTexture(mgen_id, "Result", Volume);
+            _CShaderGenerator.SetVector("_StartPos", new Vector4(Pos.x, Pos.y, Pos.z, 0.0f));
+            _CShaderGenerator.Dispatch(mgen_id, ChunkSizeZ + Overlay, ChunkSizeZ + Overlay, ChunkSizeZ + Overlay);
+
 			//Debug.Log("Sphere generation time:  " + (1000.0f*(Time.realtimeSinceStartup-startTime)).ToString()+"ms");
 		};
 		QGenerator.Enqueue(d);
@@ -272,152 +226,166 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 			Debug.LogWarning("NULL Voulme, generation aborted");
 			return;
 		}
-		
-		int mgen_id = _CShaderGenerator.FindKernel("Plane");
 
-		_CShaderGenerator.SetTexture(mgen_id,"Result",Volume);
-		
-		_CShaderGenerator.SetVector("_StartPos",new Vector4(Pos.x,Pos.y,Pos.z,0.0f));
-		
-		_CShaderGenerator.Dispatch(mgen_id,_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay);
+        int mgen_id = _CShaderGenerator.FindKernel("Plane");
+        _CShaderGenerator.SetTexture(mgen_id, "Result", Volume);
+        _CShaderGenerator.SetVector("_StartPos", new Vector4(Pos.x, Pos.y, Pos.z, 0.0f));
+        _CShaderGenerator.Dispatch(mgen_id, ChunkSizeZ + Overlay, ChunkSizeZ + Overlay, ChunkSizeZ + Overlay);
+
 		//Debug.Log("Sphere generation time:  " + (1000.0f*(Time.realtimeSinceStartup-startTime)).ToString()+"ms");
 	}
-	
-	public void BuildChunkMesh(RenderTexture Volume, Mesh NewMesh, RenderTexture[,,] Neighbours)
+
+    public void FillBorders(RenderTexture RT_Volume, RenderTexture[, ,] RT_Neighbours, int iSize = 32)
+    {
+        // check the correctness
+        if (RT_Neighbours.GetLength(0) == 0)
+        {
+            RT_Neighbours = new RenderTexture[3, 3, 3];
+            Debug.LogWarning("Empty neighborhood");
+        }
+        if (RT_Volume == null)
+        {
+            Debug.LogWarning("NULL Volume, generation aborted");
+            return;
+        }
+
+        Debug.Log("FillBorders");
+        int mgen_id = _CShaderGenerator.FindKernel("FillBorders");
+
+        RenderTexture TempRenderTexture = RenderTexture.GetTemporary(iSize, iSize, 0, RenderTextureFormat.RFloat, RenderTextureReadWrite.sRGB);
+        TempRenderTexture.volumeDepth = iSize;
+        TempRenderTexture.isVolume = true;
+        TempRenderTexture.enableRandomWrite = true;
+        TempRenderTexture.filterMode = FilterMode.Point;
+        TempRenderTexture.wrapMode = TextureWrapMode.Clamp;
+        TempRenderTexture.Create();
+
+        //_CShaderGenerator.SetTexture(mgen_id,"Result",TempRenderTexture);
+        //_CShaderGenerator.Dispatch(mgen_id,1,1,iSize);
+
+        _CShaderGenerator.SetTexture(mgen_id, "Result", RT_Volume);
+
+        _CShaderGenerator.SetTexture(mgen_id, "vol100", RT_Neighbours[2, 1, 1] != null ? RT_Neighbours[2, 1, 1] : TempRenderTexture);
+        _CShaderGenerator.SetTexture(mgen_id, "vol010", RT_Neighbours[1, 2, 1] != null ? RT_Neighbours[1, 2, 1] : TempRenderTexture);
+        _CShaderGenerator.SetTexture(mgen_id, "vol001", RT_Neighbours[1, 1, 2] != null ? RT_Neighbours[1, 1, 2] : TempRenderTexture);
+
+        _CShaderGenerator.SetTexture(mgen_id, "volm100", RT_Neighbours[0, 1, 1] != null ? RT_Neighbours[0, 1, 1] : TempRenderTexture);
+        _CShaderGenerator.SetTexture(mgen_id, "vol0m10", RT_Neighbours[1, 0, 1] != null ? RT_Neighbours[1, 0, 1] : TempRenderTexture);
+        _CShaderGenerator.SetTexture(mgen_id, "vol00m1", RT_Neighbours[1, 1, 0] != null ? RT_Neighbours[1, 1, 0] : TempRenderTexture);
+
+        _CShaderGenerator.Dispatch(mgen_id, iSize, iSize, iSize);
+
+        TempRenderTexture.Release();
+
+    }
+
+	public void BuildChunkMesh(RenderTexture RT_Volume, Mesh NewMesh, RenderTexture[,,] RT_Neighbours)
 	{
-		if (Volume == null || NewMesh == null)
+        if (RT_Volume == null || NewMesh == null)
 		{
-			Debug.LogWarning("Can't build mesh '"+NewMesh+"' from '"+Volume+"' volume");
+            Debug.LogWarning("Can't build mesh '" + NewMesh + "' from '" + RT_Volume + "' volume");
 			return;
 		}
 		
-		float startTime = Time.realtimeSinceStartup;
-		
-		
-		
-		RenderTexture IDVol = RenderTexture.GetTemporary(_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay,0,RenderTextureFormat.RInt,RenderTextureReadWrite.sRGB);
-		IDVol.volumeDepth = (_ChunkSizeZ+Overlay)*3;
-		IDVol.isVolume = true;
-		IDVol.enableRandomWrite = true;
-		IDVol.filterMode = FilterMode.Point;
-		IDVol.wrapMode = TextureWrapMode.Clamp;
-		IDVol.Create();
-		
+		//float startTime = Time.realtimeSinceStartup;
+
+        RenderTexture RT_IndexVolume = RenderTexture.GetTemporary(ChunkSizeZ + Overlay, ChunkSizeZ + Overlay, 0, RenderTextureFormat.RInt, RenderTextureReadWrite.sRGB);
+        RT_IndexVolume.volumeDepth = (ChunkSizeZ + Overlay) * 3;
+		RT_IndexVolume.isVolume = true;
+		RT_IndexVolume.enableRandomWrite = true;
+		RT_IndexVolume.filterMode = FilterMode.Point;
+		RT_IndexVolume.wrapMode = TextureWrapMode.Clamp;
+		RT_IndexVolume.Create();
 		
 		//int[] index_pool = new int[ 4 ];
-		Vector3[] vertex_buffer = new Vector3[_MaxSize*3];
-		int[] triangles_buffer = new int[_MaxSize*3];
-		int[] cntbuffer = new int[2];
+        Vector3[] vertex_buffer = new Vector3[_MaxSize * 3];
+        int[] triangles_buffer = new int[_MaxSize * 3];
+        int[] count_buffer = new int[2];
 		
 		//ComputeBuffer IndexPool = new ComputeBuffer(4,4);
-		ComputeBuffer VertexBuffer = new ComputeBuffer(_MaxSize,36);
-		ComputeBuffer TrisBuffer = new ComputeBuffer(_MaxSize,12);
-		ComputeBuffer CountBuffer = new ComputeBuffer(2,4);
+        ComputeBuffer CB_VertexBuffer = new ComputeBuffer(_MaxSize, 36);
+        ComputeBuffer CB_TrisBuffer = new ComputeBuffer(_MaxSize, 12);
+        ComputeBuffer CB_CountBuffer = new ComputeBuffer(2, 4);
 				
 		//Set data to container
 		//IndexPool.SetData(index_pool);
-		VertexBuffer.SetData(vertex_buffer);
-		TrisBuffer.SetData(triangles_buffer);
-		CountBuffer.SetData(cntbuffer);
+		CB_VertexBuffer.SetData(vertex_buffer);
+		CB_TrisBuffer.SetData(triangles_buffer);
+		CB_CountBuffer.SetData(count_buffer);
 		
 		//Set parameters for building
-		_CShaderBuilder.SetInt("_Trilinear",_Trilinear);
-		_CShaderBuilder.SetInt("_Size",_ChunkSizeZ-Overlay);
-		_CShaderBuilder.SetInt("_MultiSampling",_MultiSampling);
-		_CShaderBuilder.SetFloat("_MSDist",_MSDist);
-		_CShaderBuilder.SetInt("_WithNeighbours", _WithNeighbours);
+        _CShaderBuilder.SetInt("_Trilinear", _Trilinear);
+        _CShaderBuilder.SetInt("_Size", ChunkSizeZ - Overlay);
+        _CShaderBuilder.SetInt("_MultiSampling", _MultiSampling);
+        _CShaderBuilder.SetFloat("_MSDist", _MSDist);
+        _CShaderBuilder.SetInt("_WithNeighbours", _WithNeighbours);
 		
-		int id = _CShaderBuilder.FindKernel("BuildVertices");
+		int KernelID = _CShaderBuilder.FindKernel("BuildVertices");
 		
-		
-		/*RenderTexture Vol = new RenderTexture(_ChunkSizeZ+2,_ChunkSizeZ+2,24,RenderTextureFormat.RFloat,RenderTextureReadWrite.sRGB);
-		
-		Vol.volumeDepth = _ChunkSizeZ+2;
+		/*RenderTexture Vol = new RenderTexture(ChunkSizeZ+2,ChunkSizeZ+2,24,RenderTextureFormat.RFloat,RenderTextureReadWrite.sRGB);
+		Vol.volumeDepth = ChunkSizeZ+2;
 		Vol.isVolume = true;
 		Vol.enableRandomWrite = true;
-		
 		Vol.wrapMode = TextureWrapMode.Clamp;
 		Vol.filterMode = FilterMode.Bilinear;
 		Vol.useMipMap = true;
 		Vol.mipMapBias=0.0f;
 		Vol.Create();
 		Graphics.Blit(Volume,Vol);*/
-		
-		_CShaderBuilder.SetTexture(id,"_ivolume", Volume);
-		
-		_CShaderBuilder.SetTexture(id,"index_volume", IDVol);
+
+        _CShaderBuilder.SetTexture(KernelID, "_ivolume", RT_Volume);
+        _CShaderBuilder.SetTexture(KernelID, "index_volume", RT_IndexVolume);
 		
 		if (_WithNeighbours != 0){
-			/*if (Neighbours.GetLength(0) == 0)
-				Neighbours = new RenderTexture[3,3,3];
-			else{
-				int n = 0;
-				foreach (RenderTexture N in Neighbours)
-				{
-					if (N != null)	
-						n++;
-				}
-				Debug.Log(n+" neighbours");
-			}
-			_CShaderBuilder.SetTexture(id,"vol100",Neighbours[2,1,1]!=null?Neighbours[2,1,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol010",Neighbours[1,2,1]!=null?Neighbours[1,2,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol001",Neighbours[1,1,2]!=null?Neighbours[1,1,2]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"volm100",Neighbours[0,1,1]!=null?Neighbours[0,1,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol0m10",Neighbours[1,0,1]!=null?Neighbours[1,0,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol00m1",Neighbours[1,1,0]!=null?Neighbours[1,1,0]:TempRenderTexture);
-			*/
-			FillBorders(Volume,Neighbours,32);
+            FillBorders(RT_Volume, RT_Neighbours, 32);
 		}
-		//else
-		//	Debug.Log("no Neighbours");
 		 
-		//_CShaderBuilder.SetBuffer(id,"index_pool", IndexPool);
-		_CShaderBuilder.SetBuffer(id,"vertex_buffer", VertexBuffer);
-		_CShaderBuilder.SetBuffer(id,"count_buffer", CountBuffer);
+		//_CShaderBuilder.SetBuffer(KernelID,"index_pool", IndexPool);
+        _CShaderBuilder.SetBuffer(KernelID, "vertex_buffer", CB_VertexBuffer);
+        _CShaderBuilder.SetBuffer(KernelID, "count_buffer", CB_CountBuffer);
 		
 		// ========== Build VERTICES ==========
-		_CShaderBuilder.Dispatch(id,1,1,1);
+        _CShaderBuilder.Dispatch(KernelID, 1, 1, 1);
 		// ====================================
 
 		//Recieve data from container
 		//IndexPool.GetData(index_pool);
-		VertexBuffer.GetData(vertex_buffer);
-		CountBuffer.GetData(cntbuffer);
-		
-		
-		id = _CShaderBuilder.FindKernel("BuildTriangles");
-		_CShaderBuilder.SetTexture(id,"_ivolume", Volume);
-		_CShaderBuilder.SetTexture(id,"index_volume", IDVol);
+        CB_VertexBuffer.GetData(vertex_buffer);
+        CB_CountBuffer.GetData(count_buffer);
+
+        KernelID = _CShaderBuilder.FindKernel("BuildTriangles");
+        _CShaderBuilder.SetTexture(KernelID, "_ivolume", RT_Volume);
+        _CShaderBuilder.SetTexture(KernelID, "index_volume", RT_IndexVolume);
 		
 		/*if (_WithNeighbours != 0){
-			_CShaderBuilder.SetTexture(id,"vol100",Neighbours[2,1,1]!=null?Neighbours[2,1,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol010",Neighbours[1,2,1]!=null?Neighbours[1,2,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol001",Neighbours[1,1,2]!=null?Neighbours[1,1,2]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"volm100",Neighbours[0,1,1]!=null?Neighbours[0,1,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol0m10",Neighbours[1,0,1]!=null?Neighbours[1,0,1]:TempRenderTexture);
-			_CShaderBuilder.SetTexture(id,"vol00m1",Neighbours[1,1,0]!=null?Neighbours[1,1,0]:TempRenderTexture);
+			_CShaderBuilder.SetTexture(KernelID,"vol100",Neighbours[2,1,1]!=null?Neighbours[2,1,1]:TempRenderTexture);
+			_CShaderBuilder.SetTexture(KernelID,"vol010",Neighbours[1,2,1]!=null?Neighbours[1,2,1]:TempRenderTexture);
+			_CShaderBuilder.SetTexture(KernelID,"vol001",Neighbours[1,1,2]!=null?Neighbours[1,1,2]:TempRenderTexture);
+			_CShaderBuilder.SetTexture(KernelID,"volm100",Neighbours[0,1,1]!=null?Neighbours[0,1,1]:TempRenderTexture);
+			_CShaderBuilder.SetTexture(KernelID,"vol0m10",Neighbours[1,0,1]!=null?Neighbours[1,0,1]:TempRenderTexture);
+			_CShaderBuilder.SetTexture(KernelID,"vol00m1",Neighbours[1,1,0]!=null?Neighbours[1,1,0]:TempRenderTexture);
 		}*/
 		
-		//_CShaderBuilder.SetBuffer(id,"index_pool", IndexPool);
-		_CShaderBuilder.SetBuffer(id,"triangles_buffer", TrisBuffer);
-		_CShaderBuilder.SetBuffer(id,"count_buffer", CountBuffer);
-		
-		_CShaderBuilder.SetInt("_Size",_ChunkSizeZ-Overlay-1);
+		//_CShaderBuilder.SetBuffer(KernelID,"index_pool", IndexPool);
+        _CShaderBuilder.SetBuffer(KernelID, "triangles_buffer", CB_TrisBuffer);
+        _CShaderBuilder.SetBuffer(KernelID, "count_buffer", CB_CountBuffer);
+        _CShaderBuilder.SetInt("_Size", ChunkSizeZ - Overlay - 1);
+
 		// ========== Build TRIANGLES ==========
-		_CShaderBuilder.Dispatch(id,1,1,1);
+        _CShaderBuilder.Dispatch(KernelID, 1, 1, 1);
 		// =====================================
 
-		//VertexBuffer.GetData(vertex_buffer);
-		TrisBuffer.GetData(triangles_buffer);
+		//CB_VertexBuffer.GetData(vertex_buffer);
+		CB_TrisBuffer.GetData(triangles_buffer);
 		
 		//IndexPool.GetData(index_pool);
-		CountBuffer.GetData(cntbuffer);
-		//IDVol.Release();
-		
-		float T = 1000.0f*(Time.realtimeSinceStartup-startTime);
-		AvgTime = (AvgTime+T)/2.0f;
-		if (T < 50)
-			MaxTime = Mathf.Max(MaxTime,T);
+		CB_CountBuffer.GetData(count_buffer);
+		//RT_IndexVolume.Release();
+
+        //float T = 1000.0f * (Time.realtimeSinceStartup - startTime);
+        //AvgTime = (AvgTime + T) / 2.0f;
+        //if (T < 50)
+        //    MaxTime = Mathf.Max(MaxTime, T);
 		//Debug.Log("Building time: " + (1000.0f*(Time.realtimeSinceStartup-startTime)).ToString()+"ms");
 		
 		/*for (int ni = 0; ni < 128; ni++){
@@ -425,7 +393,6 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 			Debug.Log(ni+") P.A ="+new Vector3(vertex_buffer[ni].A1,vertex_buffer[ni].A2,vertex_buffer[ni].A3) );
 			Debug.Log(ni+") P.B ="+new Vector3(vertex_buffer[ni].B1,vertex_buffer[ni].B2,vertex_buffer[ni].B3) );
 			Debug.Log(ni+") P.C ="+new Vector3(vertex_buffer[ni].C1,vertex_buffer[ni].C2,vertex_buffer[ni].C3) );
-			
 		}*/
 		/*for (int ni = 0; ni < 128; ni++){
 			Vector3 vp = vertex_buffer[ni];
@@ -448,19 +415,18 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 				break;
 			}
 		}*/
-		int vcount = cntbuffer[0]+1; //vertex_buffer.Length;//index_pool[131073];
+		int vcount = count_buffer[0]+1; //vertex_buffer.Length;//index_pool[131073];
 		//Debug.Log(vcount+" vertices got");
-		int count = cntbuffer[1]+1;//triangles_buffer.Length;//index_pool[131072];
+		int count = count_buffer[1]+1;//triangles_buffer.Length;//index_pool[131072];
 		//Debug.Log(count+" triangles got");
 		
 
 		//We have got all data and are ready to setup a new mesh!
-		
 		NewMesh.Clear();
-		
-		Vector3[] vertices = new Vector3[vcount];
-		int[] tris = new int[(count+1)*3];
-		Vector3[] normals = new Vector3[vcount];
+
+        Vector3[] vertices = new Vector3[vcount];
+        int[] tris = new int[(count + 1) * 3];
+        Vector3[] normals = new Vector3[vcount];
 		/*for (int i=0;i<count*3;i++)
 		{
 			tris[i] = triangles_buffer[i];
@@ -484,21 +450,23 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 		
 		NewMesh.Optimize();
 		
-		VertexBuffer.Dispose();
-		TrisBuffer.Dispose();
-		CountBuffer.Dispose();
-		RenderTexture.ReleaseTemporary(IDVol);
+		CB_VertexBuffer.Dispose();
+		CB_TrisBuffer.Dispose();
+		CB_CountBuffer.Dispose();
+		RenderTexture.ReleaseTemporary(RT_IndexVolume);
 		//Vol.Release();
 	}
 	
+
+
 	public VoxelChunk NewChunk(Transform ChunkContainer, Vector3 vPos, int iSize = 27)
 	{
-		GameObject ChunkObject = new GameObject(vPos.ToString(),typeof(MeshRenderer), typeof(MeshFilter),typeof(MeshCollider), typeof(VoxelChunk));
-		ChunkObject.transform.parent = ChunkContainer;
-		ChunkObject.GetComponent<MeshRenderer>().material =  _DefaultMaterial;
-		ChunkObject.transform.localScale = ChunkContainer.localScale;
-		ChunkObject.transform.localPosition = vPos;
-		ChunkObject.transform.rotation = ChunkContainer.rotation;
+        GameObject ChunkObject = new GameObject(vPos.ToString(), typeof(MeshRenderer), typeof(MeshFilter), typeof(MeshCollider), typeof(VoxelChunk));
+        ChunkObject.transform.parent = ChunkContainer;
+        ChunkObject.GetComponent<MeshRenderer>().material = _DefaultMaterial;
+        ChunkObject.transform.localScale = ChunkContainer.localScale;
+        ChunkObject.transform.localPosition = vPos;
+        ChunkObject.transform.rotation = ChunkContainer.rotation;
 		
 		VoxelChunk Chunk = ChunkObject.GetComponent<VoxelChunk>();
 		Chunk._SizeZ = iSize;
@@ -509,11 +477,10 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 		return Chunk;
 	}
 	
-	
 	VoxelChunk GetChunk(Transform ChunkContainer, Vector3 vPos, bool bCreate, int iSize = 27)
 	{
 		Transform ChunkTransform;
-		vPos = ChunkContainer.InverseTransformPoint(vPos)*ChunkContainer.localScale.x;
+        vPos = ChunkContainer.InverseTransformPoint(vPos) * ChunkContainer.localScale.x;
 		/*Vector3 vINT;
 		vINT.x = Mathf.Clamp(Mathf.RoundToInt(pPos.x/Size),-1,1);
 		vINT.y = Mathf.Clamp(Mathf.RoundToInt(pPos.y/Size),-1,1);
@@ -545,6 +512,7 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 	}
 	
 	
+
 	public void PaintBrushAll(/*Transform ChunkContainer*/VoxelChunk chunk, Vector3 Pos, float fSize, float fStr)
 	{
 		if (chunk.transform.parent != null)
@@ -581,14 +549,14 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 			PaintBrush(chunk, Pos, fSize, fStr);
 		
 		/*
-		RenderTexture TempRenderTexture = RenderTexture.GetTemporary(_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay,0,RenderTextureFormat.RFloat,RenderTextureReadWrite.sRGB);
-		TempRenderTexture.volumeDepth = _ChunkSizeZ+Overlay;
+		RenderTexture TempRenderTexture = RenderTexture.GetTemporary(ChunkSizeZ+Overlay,ChunkSizeZ+Overlay,0,RenderTextureFormat.RFloat,RenderTextureReadWrite.sRGB);
+		TempRenderTexture.volumeDepth = ChunkSizeZ+Overlay;
 		TempRenderTexture.isVolume = true;
 		TempRenderTexture.enableRandomWrite = true;
 		TempRenderTexture.filterMode = FilterMode.Point;
 		TempRenderTexture.wrapMode = TextureWrapMode.Clamp;
 		TempRenderTexture.Create();
-		CreateEmptyVolume(TempRenderTexture,_ChunkSizeZ+Overlay);
+		CreateEmptyVolume(TempRenderTexture,ChunkSizeZ+Overlay);
 		
 		RenderTexture[,,] Neighbours = GetNeighbours(chunk);
 		
@@ -632,7 +600,7 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 		_CShaderGenerator.SetFloat("_Brush_Size",fSize);
 		_CShaderGenerator.SetFloat("_Brush_Strength",fStr);
 		
-		_CShaderGenerator.Dispatch(mgen_id,_ChunkSizeZ*3,_ChunkSizeZ*3,_ChunkSizeZ*3);
+		_CShaderGenerator.Dispatch(mgen_id,ChunkSizeZ*3,ChunkSizeZ*3,ChunkSizeZ*3);
 		
 		TempRenderTexture.Release();
 		*/
@@ -716,7 +684,7 @@ public class VoxelCalculator : Singleton<VoxelCalculator> {
 				_CShaderGenerator.SetFloat("_Brush_Size",fSize);
 				_CShaderGenerator.SetFloat("_Brush_Strength",fStr);
 				
-				_CShaderGenerator.Dispatch(mgen_id,_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay,_ChunkSizeZ+Overlay);
+				_CShaderGenerator.Dispatch(mgen_id,ChunkSizeZ+Overlay,ChunkSizeZ+Overlay,ChunkSizeZ+Overlay);
 				
 				//chunk.cColor = Color.yellow;
 				chunk._Col = Color.green;

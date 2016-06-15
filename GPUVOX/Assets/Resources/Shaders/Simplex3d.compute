@@ -164,7 +164,7 @@ float simplex3d(float3 ws) {
 		2,0,2,7,5,8,4,10,5,4,8,2,6,1,0,11,10,2,1,10,6,0,0,11,11,6,1,9,3,1,7,9,2,11,11,1,
 		0,10,7,1,7,10,1,4,0,0,8,7,1,2,9,7,4,6,2,6,8,1,9,6,6,7,5,0,0,3,9,8,3,6,6,11,1,0,0
 	}; 
-						float n0,n1,n2,n3; // Noise contributions from the four corners
+	float n0,n1,n2,n3; // Noise contributions from the four corners
 	// Skew the input space to determine which simplex cell we're in
 	float s = (xin+yin+zin)*F3; // Very nice and simple skew factor for 3D
 	int i = floor(xin+s);
@@ -325,28 +325,24 @@ void SphereAdd (uint3 id : SV_DispatchThreadID)
 [numthreads(1,1,1)]
 void FillEmpty (uint3 id : SV_DispatchThreadID)
 {
-	Result[id.xyz]=0;
+	Result[id.xyz] = 0;
 }
 
 [numthreads(1,1,1)]
 void FillBorders (uint3 id : SV_DispatchThreadID)
 {
-	if (id.x < 3)
-		Result[id.xyz]=volm100[int3(id.x+29,id.y,id.z)];
-	else 
-	if (id.y < 3)
-		Result[id.xyz]=vol0m10[int3(id.x,id.y+29,id.z)];
-	else 
-	if (id.z < 3)
-		Result[id.xyz]=vol00m1[int3(id.x,id.y,id.z+29)];
-	
-	else 
-	if (id.x > 28)
-		Result[id.xyz]=vol100[int3(id.x-29,id.y,id.z)];
-	else if (id.y > 28)
-		Result[id.xyz]=vol010[int3(id.x,id.y-29,id.z)];
-	else if (id.z > 28)
-		Result[id.xyz]=vol001[int3(id.x,id.y,id.z-29)];	
+    if (id.x < 3)
+        Result[id.xyz] = volm100[int3(id.x + 29, id.y, id.z)];
+    else if (id.y < 3)
+        Result[id.xyz] = vol0m10[int3(id.x, id.y + 29, id.z)];
+    else if (id.z < 3)
+        Result[id.xyz] = vol00m1[int3(id.x, id.y, id.z + 29)];
+    else if (id.x > 28)
+        Result[id.xyz] = vol100[int3(id.x - 29, id.y, id.z)];
+    else if (id.y > 28)
+        Result[id.xyz] = vol010[int3(id.x, id.y - 29, id.z)];
+    else if (id.z > 28)
+        Result[id.xyz] = vol001[int3(id.x, id.y, id.z - 29)];
 		
 	//Result[id.xyz]=vol00m1[int3(id.x,id.y,id.z)];
 	//Result[id.xyz]=0;	

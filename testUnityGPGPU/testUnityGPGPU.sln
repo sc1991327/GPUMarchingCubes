@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "testUnityGPGPU.CSharp", "testUnityGPGPU.CSharp.csproj", "{C0565698-8A9C-02F5-309C-5B4116697A1B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C0565698-8A9C-02F5-309C-5B4116697A1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0565698-8A9C-02F5-309C-5B4116697A1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0565698-8A9C-02F5-309C-5B4116697A1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0565698-8A9C-02F5-309C-5B4116697A1B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

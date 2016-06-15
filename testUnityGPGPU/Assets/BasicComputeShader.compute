@@ -1,0 +1,12 @@
+﻿#pragma kernel CSMain2
+ 
+RWStructuredBuffer<int> buffer2;
+ 
+[numthreads(4,4,1)]
+ 
+void CSMain2( int3 dispatchID : SV_DispatchThreadID)
+{
+    int id = dispatchID.x + dispatchID.y * 8;
+ 
+    buffer2[id] = id;
+}

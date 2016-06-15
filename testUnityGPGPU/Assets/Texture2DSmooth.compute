@@ -1,0 +1,31 @@
+﻿#pragma kernel CSMain
+ 
+RWTexture2D<float4> texS;
+Texture2D<float4> texO;
+ 
+SamplerState _LinearClamp;
+SamplerState _LinearRepeat;
+SamplerState _PointClamp;
+SamplerState _PointRepeat;
+ 
+[numthreads(8,8,1)]
+void CSMain (uint2 id : SV_DispatchThreadID)
+{
+    float w, h;
+    texS.GetDimensions(w, h);
+    
+	float2 uv0 = float2((id.x)/w, (id.y)/h);
+	float2 uv1 = float2((id.x - 1)/w, (id.y)/h);
+	float2 uv2 = float2((id.x + 1)/w, (id.y)/h);
+	float2 uv3 = float2((id.x)/w, (id.y - 1)/h);
+	float2 uv4 = float2((id.x)/w, (id.y + 1)/h);
+ 
+    float4 t0 = texO.SampleLevel(_PointClamp, uv0, 0);
+	float4 t1 = texO.SampleLevel(_PointClamp, uv1, 0);
+	float4 t2 = texO.SampleLevel(_PointClamp, uv2, 0);
+	float4 t3 = texO.SampleLevel(_PointClamp, uv3, 0);
+	float4 t4 = texO.SampleLevel(_PointClamp, uv4, 0);
+
+	//texS[id] = t0;
+    texS[id] = (t0 + t1 + t2 + t3 + t4) / 5;
+}
